@@ -58,15 +58,23 @@ type TNEFAttachment struct {
 	Data  []byte
 }
 
+type TNEFData struct {
+	Body        []byte
+	BodyHTML    []byte
+	Attachments []*TNEFAttachment
+	Attributes  []MAPIAttribute
+}
+
 func (a *TNEFAttachment) AddAttr(obj TNEFObject) {
-	if obj.Name == ATTATTACHTITLE {
+	switch obj.Name {
+	case ATTATTACHTITLE:
 		a.Title = strings.Replace(string(obj.Data), "\x00", "", -1)
-	} else if obj.Name == ATTATTACHDATA {
+	case ATTATTACHDATA:
 		a.Data = obj.Data
 	}
 }
 
-func DecodeFile(path string) ([]*TNEFAttachment, error) {
+func DecodeFile(path string) (*TNEFData, error) {
 	data, err := ioutil.ReadFile(path)
 	if err != nil {
 		return nil, err
@@ -75,15 +83,17 @@ func DecodeFile(path string) ([]*TNEFAttachment, error) {
 	return Decode(data)
 }
 
-func Decode(data []byte) ([]*TNEFAttachment, error) {
+func Decode(data []byte) (*TNEFData, error) {
 	if byte_to_int(data[0:4]) != TNEF_SIGNATURE {
 		return nil, errors.New("Signature didn't match valid TNEF file")
 	}
 
 	//key := binary.LittleEndian.Uint32(data[4:6])
 	offset := 6
-	var attachments []*TNEFAttachment
 	var attachment *TNEFAttachment
+	tnef := &TNEFData{
+		Attachments: []*TNEFAttachment{},
+	}
 
 	for offset < len(data) {
 		obj := decodeTNEFObject(data[offset:])
@@ -91,15 +101,25 @@ func Decode(data []byte) ([]*TNEFAttachment, error) {
 
 		if obj.Name == ATTATTACHRENDDATA {
 			attachment = new(TNEFAttachment)
-			attachments = append(attachments, attachment)
+			tnef.Attachments = append(tnef.Attachments, attachment)
 		} else if obj.Level == LVL_ATTACHMENT {
 			attachment.AddAttr(obj)
 		} else if obj.Name == ATTMAPIPROPS {
-			// TODO
+			tnef.Attributes = decode_mapi(obj.Data)
+
+			// Get the body property if it's there
+			for _, attr := range tnef.Attributes {
+				switch attr.Name {
+				case MAPI_BODY:
+					tnef.Body = attr.Data
+				case MAPI_BODY_HTML:
+					tnef.BodyHTML = attr.Data
+				}
+			}
 		}
 	}
 
-	return attachments, nil
+	return tnef, nil
 }
 
 func decodeTNEFObject(data []byte) (object TNEFObject) {
