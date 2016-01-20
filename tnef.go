@@ -45,7 +45,7 @@ const (
 	ATTORIGNINALMESSAGECLASS   = 0x9008 // Original Message Class
 )
 
-type TNEFObject struct {
+type tnefObject struct {
 	Level  int
 	Name   int
 	Type   int
@@ -65,7 +65,7 @@ type TNEFData struct {
 	Attributes  []MAPIAttribute
 }
 
-func (a *TNEFAttachment) AddAttr(obj TNEFObject) {
+func (a *TNEFAttachment) addAttr(obj tnefObject) {
 	switch obj.Name {
 	case ATTATTACHTITLE:
 		a.Title = strings.Replace(string(obj.Data), "\x00", "", -1)
@@ -103,7 +103,7 @@ func Decode(data []byte) (*TNEFData, error) {
 			attachment = new(TNEFAttachment)
 			tnef.Attachments = append(tnef.Attachments, attachment)
 		} else if obj.Level == LVL_ATTACHMENT {
-			attachment.AddAttr(obj)
+			attachment.addAttr(obj)
 		} else if obj.Name == ATTMAPIPROPS {
 			tnef.Attributes = decode_mapi(obj.Data)
 
@@ -122,7 +122,7 @@ func Decode(data []byte) (*TNEFData, error) {
 	return tnef, nil
 }
 
-func decodeTNEFObject(data []byte) (object TNEFObject) {
+func decodeTNEFObject(data []byte) (object tnefObject) {
 	offset := 0
 
 	object.Level = byte_to_int(data[offset : offset+1])
