@@ -9,3 +9,10 @@ func byte_to_int(data []byte) int {
 	}
 	return num
 }
+
+func min(a, b int) int {
+	if a > b {
+		return b
+	}
+	return a
+}

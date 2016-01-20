@@ -1,7 +1,5 @@
 package tnef
 
-import "math/big"
-
 type MAPIAttribute struct {
 	Type int
 	Name int
@@ -22,37 +20,34 @@ func decode_mapi(data []byte) (attrs []MAPIAttribute) {
 
 		attr_type := byte_to_int(data[offset : offset+2])
 		offset += 2
+
 		attr_name := byte_to_int(data[offset : offset+2])
 		offset += 2
 
 		guid := 0
-		if attr_name >= 0x8000 {
-			//guid = 0x32.32 % byte_to_int(data[offset:offset+16])
+		if attr_name >= 0x8000 && attr_name <= 0xFFFE {
+			guid = byte_to_int(data[offset : offset+16])
 			offset += 16
 			kind := byte_to_int(data[offset : offset+4])
 			offset += 4
 
 			if kind == 0 {
 				offset += 4
-			} else {
-				iidLen := int64(byte_to_int(data[offset : offset+4]))
+			} else if kind == 1 {
+				iidLen := byte_to_int(data[offset : offset+4])
 				offset += 4
-				bInt := big.Int{}
-				_, r := bInt.DivMod(big.NewInt(int64(iidLen)), big.NewInt(4), &big.Int{})
-				if r.Int64() != 0 {
-					iidLen += (4 - r.Int64())
-					offset += int(iidLen)
-				}
+
+				offset += (-iidLen & 3)
 			}
 		}
 
 		attr_data := []byte{}
 
 		switch attr_type {
-		case SZMAPI_SHORT:
+		case SZMAPI_SHORT, SZMAPI_BOOLEAN:
 			attr_data = data[offset : offset+2]
 			offset += 2
-		case SZMAPI_INT, SZMAPI_FLOAT, SZMAPI_ERROR, SZMAPI_BOOLEAN:
+		case SZMAPI_INT, SZMAPI_FLOAT, SZMAPI_ERROR:
 			attr_data = data[offset : offset+4]
 			offset += 4
 		case SZMAPI_DOUBLE, SZMAPI_APPTIME, SZMAPI_CURRENCY, SZMAPI_INT8BYTE, SZMAPI_SYSTIME:
@@ -61,23 +56,17 @@ func decode_mapi(data []byte) (attrs []MAPIAttribute) {
 		case SZMAPI_CLSID:
 			attr_data = data[offset : offset+16]
 			offset += 16
-		case SZMAPI_STRING, SZMAPI_UNICODE_STRING, SZMAPI_OBJECT, SZMAPI_BINARY, SZMAPI_UNSPECIFIED:
-			num_vals := byte_to_int(data[offset : offset+4])
+		case SZMAPI_STRING, SZMAPI_UNICODE_STRING, SZMAPI_OBJECT, SZMAPI_BINARY:
+			//num_vals := byte_to_int(data[offset : offset+4])
 			offset += 4
 
-			for j := 0; j < num_vals; j++ {
-				length := int64(byte_to_int(data[0:4]))
-				offset += 4
+			length := byte_to_int(data[offset : offset+4])
+			offset += 4
 
-				bInt := big.Int{}
-				_, r := bInt.DivMod(big.NewInt(int64(length)), big.NewInt(4), &big.Int{})
-				if r.Int64() != 0 {
-					length += (4 - r.Int64())
-				}
+			attr_data = data[offset : length+offset]
 
-				attr_data = append(attr_data, data[offset:offset+int(length)]...)
-				offset += int(length)
-			}
+			offset += length
+			offset += (-length & 3)
 		}
 
 		attrs = append(attrs, MAPIAttribute{Type: attr_type, Name: attr_name, Data: attr_data, Guid: guid})
