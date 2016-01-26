@@ -1,5 +1,7 @@
 package tnef
 
+import "strconv"
+
 type MAPIAttribute struct {
 	Type int
 	Name int
@@ -21,6 +23,14 @@ func decode_mapi(data []byte) (attrs []MAPIAttribute) {
 		attr_type := byte_to_int(data[offset : offset+2])
 		offset += 2
 
+		isMultiValue := (attr_type & MV_FLAG) != 0
+		attr_type &= ^MV_FLAG // Remove MV_FLAG
+
+		typeSize := get_type_size(attr_type)
+		if typeSize < 0 {
+			isMultiValue = true
+		}
+
 		attr_name := byte_to_int(data[offset : offset+2])
 		offset += 2
 
@@ -37,33 +47,34 @@ func decode_mapi(data []byte) (attrs []MAPIAttribute) {
 				iidLen := byte_to_int(data[offset : offset+4])
 				offset += 4
 
+				offset += iidLen
+
 				offset += (-iidLen & 3)
 			}
 		}
 
+		// Handle multi-value properties
+		valueCount := 1
+		if isMultiValue {
+			valueCount = byte_to_int(data[offset : offset+4])
+			offset += 4
+		}
+
+		if valueCount > 1024 && valueCount > len(data) {
+			panic("count is too large:" + strconv.Itoa(valueCount))
+		}
+
 		attr_data := []byte{}
 
-		switch attr_type {
-		case SZMAPI_SHORT, SZMAPI_BOOLEAN:
-			attr_data = data[offset : offset+2]
-			offset += 2
-		case SZMAPI_INT, SZMAPI_FLOAT, SZMAPI_ERROR:
-			attr_data = data[offset : offset+4]
-			offset += 4
-		case SZMAPI_DOUBLE, SZMAPI_APPTIME, SZMAPI_CURRENCY, SZMAPI_INT8BYTE, SZMAPI_SYSTIME:
-			attr_data = data[offset : offset+8]
-			offset += 8
-		case SZMAPI_CLSID:
-			attr_data = data[offset : offset+16]
-			offset += 16
-		case SZMAPI_STRING, SZMAPI_UNICODE_STRING, SZMAPI_OBJECT, SZMAPI_BINARY:
-			//num_vals := byte_to_int(data[offset : offset+4])
-			offset += 4
+		for i := 0; i < valueCount; i++ {
+			length := typeSize
+			if typeSize < 0 {
+				length = byte_to_int(data[offset : offset+4])
+				offset += 4
+			}
 
-			length := byte_to_int(data[offset : offset+4])
-			offset += 4
-
-			attr_data = data[offset : length+offset]
+			// Read the data in
+			attr_data = append(attr_data, data[offset:offset+length]...)
 
 			offset += length
 			offset += (-length & 3)
@@ -75,7 +86,25 @@ func decode_mapi(data []byte) (attrs []MAPIAttribute) {
 	return
 }
 
+func get_type_size(attr_type int) int {
+	switch attr_type {
+	case SZMAPI_SHORT, SZMAPI_BOOLEAN:
+		return 2
+	case SZMAPI_INT, SZMAPI_FLOAT, SZMAPI_ERROR:
+		return 4
+	case SZMAPI_DOUBLE, SZMAPI_APPTIME, SZMAPI_CURRENCY, SZMAPI_INT8BYTE, SZMAPI_SYSTIME:
+		return 8
+	case SZMAPI_CLSID:
+		return 16
+	case SZMAPI_STRING, SZMAPI_UNICODE_STRING, SZMAPI_OBJECT, SZMAPI_BINARY:
+		return -1
+	}
+	return 0
+}
+
 const (
+	MV_FLAG = 0x1000 // OR with type means multiple values
+
 	SZMAPI_UNSPECIFIED             = 0x0000 //# MAPI Unspecified
 	SZMAPI_NULL                    = 0x0001 //# MAPI null property
 	SZMAPI_SHORT                   = 0x0002 //# MAPI short (signed 16 bits)
@@ -90,7 +119,7 @@ const (
 	SZMAPI_INT8BYTE                = 0x0014 //# MAPI 8 byte signed int
 	SZMAPI_STRING                  = 0x001e //# MAPI string
 	SZMAPI_UNICODE_STRING          = 0x001f //# MAPI unicode-string (null terminated)
-	SZMAPI_PT_SYSTIME              = 0x001e // # MAPI time (after 2038/01/17 22:14:07 or before 1970/01/01 00:00:00)
+	SZMAPI_PT_SYSTIME              = 0x001e //# MAPI time (after 2038/01/17 22:14:07 or before 1970/01/01 00:00:00)
 	SZMAPI_SYSTIME                 = 0x0040 //# MAPI time (64 bits)
 	SZMAPI_CLSID                   = 0x0048 //# MAPI OLE GUID
 	SZMAPI_BINARY                  = 0x0102 //# MAPI binary
