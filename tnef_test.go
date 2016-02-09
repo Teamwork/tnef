@@ -21,6 +21,10 @@ func TestAttachments(t *testing.T) {
 		if len(a.Data) == 0 {
 			t.Error(errors.New("Attachment " + a.Title + " has no data in it!"))
 		}
+
+		if a.Title != "ZAPPA_~2.JPG" && a.Title != "bookmark.htm" {
+			t.Error(errors.New("Attachment didn't come back with the correct name: " + a.Title))
+		}
 	}
 }
 

@@ -7,10 +7,14 @@ import (
 )
 
 const (
-	TNEF_SIGNATURE = 0x223e9f78
-	LVL_MESSAGE    = 0x01
-	LVL_ATTACHMENT = 0x02
+	tnefSignature = 0x223e9f78
+	lvlMessage    = 0x01
+	lvlAttachment = 0x02
+)
 
+// These can be used to figure out the type of attribute
+// an object is
+const (
 	ATTOWNER                   = 0x0000 // Owner
 	ATTSENTFOR                 = 0x0001 // Sent For
 	ATTDELEGATE                = 0x0002 // Delegate
@@ -21,7 +25,7 @@ const (
 	ATTFROM                    = 0x8000 // From
 	ATTSUBJECT                 = 0x8004 // Subject
 	ATTDATESENT                = 0x8005 // Date Sent
-	ATTDATERECD                = 0x8006 // Date Recieved
+	ATTDATERECD                = 0x8006 // Date Received
 	ATTMESSAGESTATUS           = 0x8007 // Message Status
 	ATTMESSAGECLASS            = 0x8008 // Message Class
 	ATTMESSAGEID               = 0x8009 // Message ID
@@ -53,19 +57,22 @@ type tnefObject struct {
 	Length int
 }
 
-type TNEFAttachment struct {
+// Attachment contains standard attachments that are embedded
+// within the TNEF file, with the name and data of the file extracted.
+type Attachment struct {
 	Title string
 	Data  []byte
 }
 
-type TNEFData struct {
+// Data contains the various data from the extracted TNEF file.
+type Data struct {
 	Body        []byte
 	BodyHTML    []byte
-	Attachments []*TNEFAttachment
+	Attachments []*Attachment
 	Attributes  []MAPIAttribute
 }
 
-func (a *TNEFAttachment) addAttr(obj tnefObject) {
+func (a *Attachment) addAttr(obj tnefObject) {
 	switch obj.Name {
 	case ATTATTACHTITLE:
 		a.Title = strings.Replace(string(obj.Data), "\x00", "", -1)
@@ -74,7 +81,9 @@ func (a *TNEFAttachment) addAttr(obj tnefObject) {
 	}
 }
 
-func DecodeFile(path string) (*TNEFData, error) {
+// DecodeFile is a utility function that reads the file into memory
+// before calling the normal Decode function on the data.
+func DecodeFile(path string) (*Data, error) {
 	data, err := ioutil.ReadFile(path)
 	if err != nil {
 		return nil, err
@@ -83,16 +92,18 @@ func DecodeFile(path string) (*TNEFData, error) {
 	return Decode(data)
 }
 
-func Decode(data []byte) (*TNEFData, error) {
-	if byte_to_int(data[0:4]) != TNEF_SIGNATURE {
+// Decode will accept a stream of bytes in the TNEF format and extract the
+// attachments and body into a Data object.
+func Decode(data []byte) (*Data, error) {
+	if byteToInt(data[0:4]) != tnefSignature {
 		return nil, errors.New("Signature didn't match valid TNEF file")
 	}
 
 	//key := binary.LittleEndian.Uint32(data[4:6])
 	offset := 6
-	var attachment *TNEFAttachment
-	tnef := &TNEFData{
-		Attachments: []*TNEFAttachment{},
+	var attachment *Attachment
+	tnef := &Data{
+		Attachments: []*Attachment{},
 	}
 
 	for offset < len(data) {
@@ -100,19 +111,19 @@ func Decode(data []byte) (*TNEFData, error) {
 		offset += obj.Length
 
 		if obj.Name == ATTATTACHRENDDATA {
-			attachment = new(TNEFAttachment)
+			attachment = new(Attachment)
 			tnef.Attachments = append(tnef.Attachments, attachment)
-		} else if obj.Level == LVL_ATTACHMENT {
+		} else if obj.Level == lvlAttachment {
 			attachment.addAttr(obj)
 		} else if obj.Name == ATTMAPIPROPS {
-			tnef.Attributes = decode_mapi(obj.Data)
+			tnef.Attributes = decodeMapi(obj.Data)
 
 			// Get the body property if it's there
 			for _, attr := range tnef.Attributes {
 				switch attr.Name {
-				case MAPI_BODY:
+				case MAPIBody:
 					tnef.Body = attr.Data
-				case MAPI_BODY_HTML:
+				case MAPIBodyHTML:
 					tnef.BodyHTML = attr.Data
 				}
 			}
@@ -125,17 +136,17 @@ func Decode(data []byte) (*TNEFData, error) {
 func decodeTNEFObject(data []byte) (object tnefObject) {
 	offset := 0
 
-	object.Level = byte_to_int(data[offset : offset+1])
-	offset += 1
-	object.Name = byte_to_int(data[offset : offset+2])
+	object.Level = byteToInt(data[offset : offset+1])
+	offset++
+	object.Name = byteToInt(data[offset : offset+2])
 	offset += 2
-	object.Type = byte_to_int(data[offset : offset+2])
+	object.Type = byteToInt(data[offset : offset+2])
 	offset += 2
-	att_length := byte_to_int(data[offset : offset+4])
+	attLength := byteToInt(data[offset : offset+4])
 	offset += 4
-	object.Data = data[offset : offset+att_length]
-	offset += att_length
-	//checksum := byte_to_int(data[offset : offset+2])
+	object.Data = data[offset : offset+attLength]
+	offset += attLength
+	//checksum := byteToInt(data[offset : offset+2])
 	offset += 2
 
 	object.Length = offset
