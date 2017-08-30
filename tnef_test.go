@@ -31,6 +31,6 @@ func TestAttachments(t *testing.T) {
 func TestBadChecksum(t *testing.T) {
 	_, err := DecodeFile("./testfiles/badchecksum.dat")
 	if err == nil {
-		t.Error(errors.New("This should fail because of a bad checksum."))
+		t.Error(errors.New("this should fail because of a bad checksum"))
 	}
 }

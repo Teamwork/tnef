@@ -1,0 +1,18 @@
+#!/bin/sh
+
+usage="Run all tests"
+
+# Setup
+#######
+set -euC
+root="$(cd "$(dirname "$0")/.." && pwd | sed s,/Teamwork/,/teamwork/,)"
+. "$root/bin/start"
+
+# Run action
+############
+
+# If we don't set this some stacks may not be complete when encountering race
+# conditions. Uses a bit more memory, but we usually have enough of that.
+export GORACE="history_size=4"
+
+go test -race $test_tags $(go list ./... | grep -v /vendor/)
