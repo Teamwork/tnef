@@ -1,5 +1,5 @@
 // Package tnef extracts the body and attachments from Microsoft TNEF files.
-package tnef
+package tnef // import "github.com/teamwork/tnef"
 
 import (
 	"errors"
@@ -9,7 +9,7 @@ import (
 
 const (
 	tnefSignature = 0x223e9f78
-	lvlMessage    = 0x01
+	//lvlMessage    = 0x01
 	lvlAttachment = 0x02
 )
 
