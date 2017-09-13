@@ -1,3 +1,4 @@
+// Package tnef extracts the body and attachments from Microsoft TNEF files.
 package tnef
 
 import (
