@@ -1,6 +1,6 @@
 package tnef
 
-import "strconv"
+import "fmt"
 
 // MAPIAttribute contains MAPI format attributes, i.e encoding type
 // headers, attachments etc. See the constants for
@@ -12,7 +12,8 @@ type MAPIAttribute struct {
 	GUID int
 }
 
-func decodeMapi(data []byte) (attrs []MAPIAttribute) {
+func decodeMapi(data []byte) ([]MAPIAttribute, error) {
+	var attrs []MAPIAttribute
 	dataLen := len(data)
 	offset := 0
 	numProperties := byteToInt(data[offset : offset+4])
@@ -64,7 +65,7 @@ func decodeMapi(data []byte) (attrs []MAPIAttribute) {
 		}
 
 		if valueCount > 1024 && valueCount > len(data) {
-			panic("count is too large:" + strconv.Itoa(valueCount))
+			return nil, fmt.Errorf("count is too large: %d", valueCount)
 		}
 
 		attrData := []byte{}
@@ -86,7 +87,7 @@ func decodeMapi(data []byte) (attrs []MAPIAttribute) {
 		attrs = append(attrs, MAPIAttribute{Type: attrType, Name: attrName, Data: attrData, GUID: guid})
 	}
 
-	return
+	return attrs, nil
 }
 
 func getTypeSize(attrType int) int {
