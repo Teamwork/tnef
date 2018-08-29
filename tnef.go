@@ -73,6 +73,14 @@ type Data struct {
 	Attributes  []MAPIAttribute
 }
 
+// The file did not have a valid TNEF signature,
+// so there is no chance that it was TNEF format.
+var ErrInvalidSignature = errors.New("signature didn't match valid TNEF file")
+
+// The file had a valid TNEF signature, but it
+// did not match proper TNEF format, may be corrupt.
+var ErrInvalidFile = errors.New("TNEF file was invalid")
+
 func (a *Attachment) addAttr(obj tnefObject) {
 	switch obj.Name {
 	case ATTATTACHTITLE:
@@ -97,7 +105,7 @@ func DecodeFile(path string) (*Data, error) {
 // attachments and body into a Data object.
 func Decode(data []byte) (*Data, error) {
 	if byteToInt(data[0:4]) != tnefSignature {
-		return nil, errors.New("signature didn't match valid TNEF file")
+		return nil, ErrInvalidSignature
 	}
 
 	//key := binary.LittleEndian.Uint32(data[4:6])
@@ -108,7 +116,10 @@ func Decode(data []byte) (*Data, error) {
 	}
 
 	for offset < len(data) {
-		obj := decodeTNEFObject(data[offset:])
+		obj, ok := decodeTNEFObject(data[offset:])
+		if !ok {
+			return nil, ErrInvalidFile
+		}
 		offset += obj.Length
 
 		if obj.Name == ATTATTACHRENDDATA {
@@ -138,22 +149,37 @@ func Decode(data []byte) (*Data, error) {
 	return tnef, nil
 }
 
-func decodeTNEFObject(data []byte) (object tnefObject) {
+func decodeTNEFObject(data []byte) (object tnefObject, ok bool) {
 	offset := 0
+
+	// make sure the slice is long enough
+	if len(data) < offset+9 {
+		return
+	}
 
 	object.Level = byteToInt(data[offset : offset+1])
 	offset++
+
 	object.Name = byteToInt(data[offset : offset+2])
 	offset += 2
+
 	object.Type = byteToInt(data[offset : offset+2])
 	offset += 2
+
 	attLength := byteToInt(data[offset : offset+4])
 	offset += 4
+
+	// make sure the slice is long enough
+	if len(data) < offset+attLength {
+		return
+	}
+
 	object.Data = data[offset : offset+attLength]
 	offset += attLength
 	//checksum := byteToInt(data[offset : offset+2])
 	offset += 2
 
 	object.Length = offset
+	ok = true
 	return
 }
