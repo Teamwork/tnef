@@ -97,7 +97,7 @@ func DecodeFile(path string) (*Data, error) {
 // attachments and body into a Data object.
 func Decode(data []byte) (*Data, error) {
 	if byteToInt(data[0:4]) != tnefSignature {
-		return nil, errors.New("Signature didn't match valid TNEF file")
+		return nil, errors.New("signature didn't match valid TNEF file")
 	}
 
 	//key := binary.LittleEndian.Uint32(data[4:6])
@@ -117,7 +117,11 @@ func Decode(data []byte) (*Data, error) {
 		} else if obj.Level == lvlAttachment {
 			attachment.addAttr(obj)
 		} else if obj.Name == ATTMAPIPROPS {
-			tnef.Attributes = decodeMapi(obj.Data)
+			var err error
+			tnef.Attributes, err = decodeMapi(obj.Data)
+			if err != nil {
+				return nil, err
+			}
 
 			// Get the body property if it's there
 			for _, attr := range tnef.Attributes {
