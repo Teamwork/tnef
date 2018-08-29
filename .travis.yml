@@ -1,10 +1,17 @@
 language: go
 go:
-  - 1.8.x
-before_install:
-  - mv $HOME/gopath/src/github.com/Teamwork $HOME/gopath/src/github.com/teamwork
+  - 1.10.x
+go_import_path: github.com/teamwork/tnef
+notifications:
+  email: false
+  webhooks: http://tw-bot.teamworkops.com:8182/travis/buildstatus
+cache:
+  directories:
+    - $HOME/.cache/go-build
+install:
+  - ./bin/setup-travis
 script:
   - cd $HOME/gopath/src/github.com/teamwork/tnef
-  - ./bin/test
-  - ./bin/coverage
-  - ./bin/lint
+  - ./bin/test -race ./...
+  - ./bin/coverage ./...
+  - ./bin/lint ./...
