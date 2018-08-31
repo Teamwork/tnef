@@ -65,6 +65,11 @@ type Attachment struct {
 	Data  []byte
 }
 
+// ErrNoMarker signals that the file did not start with the fixed TNEF marker,
+// meaning it's not in the TNEF file format we recognize (e.g. it just has the
+// .tnef extension, or a wrong MIME type).
+var ErrNoMarker = errors.New("file did not begin with a TNEF marker")
+
 // Data contains the various data from the extracted TNEF file.
 type Data struct {
 	Body        []byte
@@ -97,7 +102,7 @@ func DecodeFile(path string) (*Data, error) {
 // attachments and body into a Data object.
 func Decode(data []byte) (*Data, error) {
 	if byteToInt(data[0:4]) != tnefSignature {
-		return nil, errors.New("signature didn't match valid TNEF file")
+		return nil, ErrNoMarker
 	}
 
 	//key := binary.LittleEndian.Uint32(data[4:6])

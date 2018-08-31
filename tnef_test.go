@@ -77,7 +77,7 @@ func TestAttachments(t *testing.T) {
 		}, ""},
 
 		// Invalid files.
-		{"badchecksum", nil, "signature didn't match valid TNEF file"},
+		{"badchecksum", nil, ErrNoMarker.Error()},
 	}
 
 	for _, tt := range tests {
