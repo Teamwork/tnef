@@ -1,4 +1,4 @@
-[![Build Status](https://travis-ci.org/Teamwork/tnef.svg?branch=master)](https://travis-ci.org/Teamwork/tnef)
+[![Build Status](https://travis-ci.com/Teamwork/tnef.svg?branch=master)](https://travis-ci.com/Teamwork/tnef)
 [![codecov](https://codecov.io/gh/Teamwork/tnef/branch/master/graph/badge.svg)](https://codecov.io/gh/Teamwork/tnef)
 [![GoDoc](https://godoc.org/github.com/Teamwork/tnef?status.svg)](https://godoc.org/github.com/Teamwork/tnef)
 
