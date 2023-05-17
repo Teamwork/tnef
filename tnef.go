@@ -101,7 +101,7 @@ func DecodeFile(path string) (*Data, error) {
 // Decode will accept a stream of bytes in the TNEF format and extract the
 // attachments and body into a Data object.
 func Decode(data []byte) (*Data, error) {
-	if byteToInt(data[0:4]) != tnefSignature {
+	if len(data) < 4 || byteToInt(data[0:4]) != tnefSignature {
 		return nil, ErrNoMarker
 	}
 
